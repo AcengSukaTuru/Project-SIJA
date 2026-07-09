@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { UI } from '../ui/UI'
 
 // ponytail: slide content inline. Move to src/data/story.ts when multiple lessons need stories.
 
@@ -147,6 +148,10 @@ export class StoryScene extends Phaser.Scene {
 
   constructor() { super('StoryScene') }
 
+  preload() {
+    UI.preload(this)
+  }
+
   init(data: { lessonId?: string }) {
     this.lessonId = data?.lessonId ?? 'fiber'
     this.slides = STORIES[this.lessonId] ?? STORIES['fiber']
@@ -180,11 +185,10 @@ export class StoryScene extends Phaser.Scene {
     }).setOrigin(1, 0)
     this.container.add(this.progressText)
 
-    // Dialog box panel (bottom 40%)
+    // Dialog box panel (bottom 40%) — Kenney UI
     const dialogY = H * 0.72
     const dialogH = 180
-    this.container.add(this.add.rectangle(W / 2, dialogY, W - 40, dialogH, 0x111122, 0.95)
-      .setStrokeStyle(2, 0x3355aa))
+    this.container.add(UI.makePanel(this, W / 2, dialogY, W - 40, dialogH))
 
     // Speaker name
     this.speakerText = this.add.text(50, dialogY - dialogH / 2 + 12, '', {
@@ -200,15 +204,13 @@ export class StoryScene extends Phaser.Scene {
     })
     this.container.add(this.bodyText)
 
-    // Next button
-    this.nextBtn = this.add.text(W - 70, dialogY + dialogH / 2 - 40, 'Lanjut ▶', {
-      fontSize: '14px', color: '#4af0ff', backgroundColor: '#1133aa',
-      padding: { x: 14, y: 6 },
-    }).setOrigin(1, 1).setInteractive({ useHandCursor: true })
-    this.nextBtn.on('pointerover', () => this.nextBtn.setStyle({ backgroundColor: '#2255cc' }))
-    this.nextBtn.on('pointerout',  () => this.nextBtn.setStyle({ backgroundColor: '#1133aa' }))
-    this.nextBtn.on('pointerdown', () => this.advance())
-    this.container.add(this.nextBtn)
+    // Next button — Kenney UI
+    const nextContainer = UI.makeBtn(this, W - 80, dialogY + dialogH / 2 - 35, 130, 38, 'Lanjut ▶', 'ui_btn_blue', { fontSize: '13px' })
+    nextContainer.on('pointerdown', () => this.advance())
+    this.container.add(nextContainer)
+    // ponytail: keep nextBtn reference for setText (Container children are private)
+    this.nextBtn = this.add.text(0, 0, '', { fontSize: '0px' }).setVisible(false)
+    this.nextBtn.setData('btnContainer', nextContainer)
 
     // Skip hint
     this.skipHint = this.add.text(W / 2, H - 12, 'Klik di mana saja atau tekan Spasi untuk lanjut', {
@@ -244,11 +246,11 @@ export class StoryScene extends Phaser.Scene {
     // Update progress
     this.progressText.setText(`${index + 1}/${this.slides.length}`)
 
-    // Update next button text
-    if (index >= this.slides.length - 1) {
-      this.nextBtn.setText('Mulai ▶▶')
-    } else {
-      this.nextBtn.setText('Lanjut ▶')
+    // Update next button text (find text child in container)
+    const btnContainer = this.nextBtn.getData('btnContainer') as Phaser.GameObjects.Container
+    if (btnContainer) {
+      const txt = btnContainer.getAt(1) as Phaser.GameObjects.Text
+      if (txt?.setText) txt.setText(index >= this.slides.length - 1 ? 'Mulai ▶▶' : 'Lanjut ▶')
     }
 
     // Start typewriter

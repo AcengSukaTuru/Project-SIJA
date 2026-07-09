@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { UI } from '../ui/UI'
 
 // ponytail: lesson data is inline here. Move to src/data/lessons.ts when list grows past ~6.
 type Lesson = {
@@ -18,6 +19,10 @@ const LESSONS: Lesson[] = [
 
 export class LessonSelectScene extends Phaser.Scene {
   constructor() { super('LessonSelectScene') }
+
+  preload() {
+    UI.preload(this)
+  }
 
   create() {
     const W = 800, H = 600
@@ -83,13 +88,7 @@ export class LessonSelectScene extends Phaser.Scene {
         fontSize: '10px', color: '#334455', fontStyle: 'italic',
       })
     } else {
-      const startBtn = this.add.text(cx + w / 2 - 16, cy + h / 2 - 16, '▶ Mulai', {
-        fontSize: '12px', color: '#4af0ff', backgroundColor: '#1133aa',
-        padding: { x: 10, y: 5 },
-      }).setOrigin(1, 1).setInteractive({ useHandCursor: true })
-
-      startBtn.on('pointerover', () => startBtn.setStyle({ backgroundColor: '#2255cc' }))
-      startBtn.on('pointerout',  () => startBtn.setStyle({ backgroundColor: '#1133aa' }))
+      const startBtn = UI.makeBtn(this, cx + w / 2 - 80, cy + h / 2 - 28, 110, 32, 'Mulai', 'ui_btn_blue', { fontSize: '12px' })
       startBtn.on('pointerdown', () => {
         this.scene.start('StoryScene', { lessonId: lesson.id })
       })
@@ -110,13 +109,7 @@ export class LessonSelectScene extends Phaser.Scene {
   }
 
   private makeBackBtn() {
-    const btn = this.add.text(16, 8, '← Kembali', {
-      fontSize: '13px', color: '#778899', backgroundColor: '#111122',
-      padding: { x: 10, y: 6 },
-    }).setInteractive({ useHandCursor: true })
-
-    btn.on('pointerover', () => btn.setStyle({ color: '#aabbcc' }))
-    btn.on('pointerout',  () => btn.setStyle({ color: '#778899' }))
+    const btn = UI.makeBtn(this, 75, 22, 130, 36, '← Kembali', 'ui_btn_grey', { fontSize: '12px' })
     btn.on('pointerdown', () => this.scene.start('MenuScene'))
   }
 }

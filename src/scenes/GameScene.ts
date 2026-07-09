@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { UI } from '../ui/UI'
 
 // ponytail: map is hardcoded; add Tiled JSON loader when you need bigger levels
 const MAP_X = 80, MAP_Y = 60, MAP_W = 640, MAP_H = 480
@@ -105,8 +106,7 @@ export class GameScene extends Phaser.Scene {
   private cleanCount = 0
   private cleanDir = 0           // -1 = kiri, 1 = kanan
   private cleanPrevX = 0
-  private cleanProgressBar!: Phaser.GameObjects.Rectangle
-  private cleanProgressBg!: Phaser.GameObjects.Rectangle
+  private cleanProgressBar!: { bg: Phaser.GameObjects.Image; fill: Phaser.GameObjects.Image; setPct: (pct: number) => void; destroy: () => void }
   private cleanStatusText!: Phaser.GameObjects.Text
   // Cut sub-state
   private cutTargetX = 0
@@ -197,6 +197,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload() {
+    UI.preload(this)
     // Load all available assets; Phaser silently skips 404s
     for (const asset of Object.values(GameScene.ASSET_MAP)) {
       this.load.image(asset.key, asset.path)
@@ -292,7 +293,9 @@ export class GameScene extends Phaser.Scene {
 
     const taskDefs = LESSON_TASKS[this.lessonId] ?? DEFAULT_TASKS
     taskDefs.forEach((t, i) => {
-      this.taskTexts[i] = this.add.text(10, 30 + i * 18, `[ ] ${t}`, {
+      UI.makeCheckbox(this, 14, 32 + i * 20, false)
+        .setScrollFactor(0).setDepth(10)
+      this.taskTexts[i] = this.add.text(28, 30 + i * 20, t, {
         fontSize: '12px', color: '#aaaaaa'
       }).setScrollFactor(0).setDepth(10)
     })
@@ -373,8 +376,7 @@ export class GameScene extends Phaser.Scene {
 
   private showSimpleDialog(msg: string, color: string) {
     const cx = 400, cy = 300, D = this.dialogElements
-    D.push(this.add.rectangle(cx, cy, 620, 320, 0x111122, 0.95)
-      .setScrollFactor(0).setDepth(15).setStrokeStyle(2, 0x4488ff))
+    D.push(UI.makePanel(this, cx, cy, 620, 320).setScrollFactor(0).setDepth(15))
     this.addDialogText(D, cx, cy - 20, msg, '16px', color, 'bold')
     this.addCloseBtn(D, cx, cy + 80)
   }
@@ -398,8 +400,7 @@ export class GameScene extends Phaser.Scene {
     const panelW = 700, panelH = 450
 
     // Panel bg
-    D.push(this.add.rectangle(cx, cy, panelW, panelH, 0x111122, 0.97)
-      .setScrollFactor(0).setDepth(15).setStrokeStyle(2, 0xff6600))
+    D.push(UI.makePanel(this, cx, cy, panelW, panelH).setScrollFactor(0).setDepth(15))
 
     // Header
     this.addDialogText(D, cx, cy - panelH / 2 + 28, '🔌  Splicing Fiber Optik', '16px', '#ff8844', 'bold')
@@ -431,16 +432,12 @@ export class GameScene extends Phaser.Scene {
     this.addDialogText(D, cableX + cableW + 10, cableY, '←', '14px', '#666666')
     this.addDialogText(D, cx, cableY - 30, 'Area pembersihan', '10px', '#666666')
 
-    // Progress bar bg
-    const pbW = 300, pbH = 14, pbY = cableY + 50
-    this.cleanProgressBg = this.add.rectangle(cx, pbY, pbW, pbH, 0x222233)
-      .setScrollFactor(0).setDepth(16)
-    D.push(this.cleanProgressBg)
-
-    // Progress bar fill
-    this.cleanProgressBar = this.add.rectangle(cx - pbW / 2, pbY, 0, pbH, 0x44aa44)
-      .setOrigin(0, 0.5).setScrollFactor(0).setDepth(16)
-    D.push(this.cleanProgressBar)
+    // Progress bar — Kenney slider
+    const pbW = 300, pbY = cableY + 50
+    this.cleanProgressBar = UI.makeProgressBar(this, cx - pbW / 2, pbY, pbW)
+    this.cleanProgressBar.bg.setScrollFactor(0).setDepth(16)
+    this.cleanProgressBar.fill.setScrollFactor(0).setDepth(16)
+    D.push(this.cleanProgressBar.bg, this.cleanProgressBar.fill)
 
     // Status text
     this.cleanStatusText = this.add.text(cx, pbY + 20, 'Gosok kiri ↔ kanan di area kabel...', {
@@ -464,10 +461,7 @@ export class GameScene extends Phaser.Scene {
         this.cleanDir = dir
         this.cleanCount++
         const pct = Math.min(this.cleanCount / 10, 1)
-        this.cleanProgressBar.setSize(300 * pct, 14)
-        if (pct >= 0.6) {
-          this.cleanProgressBar.setFillStyle(0x00ff88)
-        }
+        this.cleanProgressBar.setPct(pct)
         this.cleanStatusText.setText(`Gosokan: ${Math.min(this.cleanCount, 10)}/10`)
       }
       this.cleanPrevX = x
@@ -485,9 +479,8 @@ export class GameScene extends Phaser.Scene {
           this.dialogElements.length = 0
           // Re-add panel
           const D2 = this.dialogElements
-          D2.push(this.add.rectangle(400, 300, 700, 450, 0x111122, 0.97)
-            .setScrollFactor(0).setDepth(15).setStrokeStyle(2, 0xff6600))
-          this.addDialogText(D2, 400, 300 - 225 + 28, '🔌  Splicing Fiber Optik', '16px', '#ff8844', 'bold')
+          D2.push(UI.makePanel(this, 400, 300, 700, 450).setScrollFactor(0).setDepth(15))
+          this.addDialogText(D2, 400, 300 - 225 + 28, 'Splicing Fiber Optik', '16px', '#ff8844', 'bold')
           this.splicingStep = 'cut'
           this.showCutStep()
         })
@@ -568,9 +561,8 @@ export class GameScene extends Phaser.Scene {
         this.dialogElements.length = 0
         // Re-add panel
         const D2 = this.dialogElements
-        D2.push(this.add.rectangle(400, 300, 700, 450, 0x111122, 0.97)
-          .setScrollFactor(0).setDepth(15).setStrokeStyle(2, 0xff6600))
-        this.addDialogText(D2, 400, 300 - 225 + 28, '🔌  Splicing Fiber Optik', '16px', '#ff8844', 'bold')
+        D2.push(UI.makePanel(this, 400, 300, 700, 450).setScrollFactor(0).setDepth(15))
+        this.addDialogText(D2, 400, 300 - 225 + 28, 'Splicing Fiber Optik', '16px', '#ff8844', 'bold')
         this.splicingStep = 'splice'
         this.showSpliceStep()
       })
@@ -607,15 +599,9 @@ export class GameScene extends Phaser.Scene {
     this.addDialogText(D, cx + 100, cy + 50, `Pemotongan: ${cutLabel}`, '11px', cutColor)
 
     // Splice button
-    const btn = this.add.text(cx, cy + 100, '⚡  SPLICE', {
-      fontSize: '18px', color: '#ffffff', fontStyle: 'bold', backgroundColor: '#aa4400',
-      padding: { x: 24, y: 12 },
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(16)
-      .setInteractive({ useHandCursor: true })
+    const btn = UI.makeBtn(this, cx, cy + 100, 180, 48, 'SPLICE', 'ui_btn_yellow', { fontSize: '16px' })
+      .setScrollFactor(0).setDepth(16)
     D.push(btn)
-
-    btn.on('pointerover', () => btn.setStyle({ backgroundColor: '#cc6600' }))
-    btn.on('pointerout',  () => btn.setStyle({ backgroundColor: '#aa4400' }))
     btn.on('pointerdown', () => this.evaluateSplice())
   }
 
@@ -627,8 +613,8 @@ export class GameScene extends Phaser.Scene {
     this.dialogElements.length = 0
 
     const cx = 400, cy = 300, D = this.dialogElements
-    D.push(this.add.rectangle(cx, cy, 700, 450, 0x111122, 0.97)
-      .setScrollFactor(0).setDepth(15).setStrokeStyle(2, success ? 0x00ff88 : 0xff4444))
+    D.push(UI.makePanel(this, cx, cy, 700, 450, success ? 'ui_panel_green' : 'ui_panel_grey')
+      .setScrollFactor(0).setDepth(15))
 
     this.addDialogText(D, cx, cy - 225 + 28, '🔌  Hasil Splicing', '16px', success ? '#00ff88' : '#ff4444', 'bold')
 
@@ -659,14 +645,9 @@ export class GameScene extends Phaser.Scene {
       this.addDialogText(D, cx, cy + 75, 'Kualitas pembersihan dan pemotongan\nharus lebih baik untuk splice berhasil.', '11px', '#888888')
 
       // Retry button
-      const retryBtn = this.add.text(cx, cy + 130, '🔄  Ulangi', {
-        fontSize: '16px', color: '#ffffff', fontStyle: 'bold', backgroundColor: '#444466',
-        padding: { x: 20, y: 10 },
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(16)
-        .setInteractive({ useHandCursor: true })
+      const retryBtn = UI.makeBtn(this, cx, cy + 130, 150, 40, 'Ulangi', 'ui_btn_grey', { fontSize: '13px' })
+        .setScrollFactor(0).setDepth(16)
       D.push(retryBtn)
-      retryBtn.on('pointerover', () => retryBtn.setStyle({ backgroundColor: '#556688' }))
-      retryBtn.on('pointerout',  () => retryBtn.setStyle({ backgroundColor: '#444466' }))
       retryBtn.on('pointerdown', () => {
         this.dialogElements.forEach(el => el.destroy())
         this.dialogElements.length = 0
@@ -675,9 +656,8 @@ export class GameScene extends Phaser.Scene {
         this.splicingStep = 'clean'
         this.splicingObj = this.itObjects.find(o => o.name === 'Kabel FO')!
         const D2 = this.dialogElements
-        D2.push(this.add.rectangle(400, 300, 700, 450, 0x111122, 0.97)
-          .setScrollFactor(0).setDepth(15).setStrokeStyle(2, 0xff6600))
-        this.addDialogText(D2, 400, 300 - 225 + 28, '🔌  Splicing Fiber Optik', '16px', '#ff8844', 'bold')
+        D2.push(UI.makePanel(this, 400, 300, 700, 450).setScrollFactor(0).setDepth(15))
+        this.addDialogText(D2, 400, 300 - 225 + 28, 'Splicing Fiber Optik', '16px', '#ff8844', 'bold')
         this.showCleanStep()
       })
 
@@ -703,8 +683,8 @@ export class GameScene extends Phaser.Scene {
     const cx = 400, cy = 300, D = this.dialogElements
     const panelW = 700, panelH = 450
 
-    D.push(this.add.rectangle(cx, cy, panelW, panelH, 0x111122, 0.97)
-      .setScrollFactor(0).setDepth(15).setStrokeStyle(2, 0x4488ff))
+    D.push(UI.makePanel(this, cx, cy, panelW, panelH, 'ui_panel_blue')
+      .setScrollFactor(0).setDepth(15))
 
     this.addDialogText(D, cx, cy - panelH / 2 + 28, '🔧  Sambungkan Kabel RJ45', '16px', '#4af0ff', 'bold')
     this.addDialogText(D, cx, cy - panelH / 2 + 52, 'Tarik kabel dari KIRI ke port tujuan di KANAN', '11px', '#8899bb')
@@ -876,9 +856,10 @@ export class GameScene extends Phaser.Scene {
     this.taskTexts[0].setText('[✓] Patch Panel - Terpasang!').setStyle({ color: '#00ff88' })
 
     const cx = 400, cy = 300, D = this.dialogElements
-    D.push(this.add.rectangle(cx, cy, 400, 100, 0x0a2a0a, 0.95)
-      .setScrollFactor(0).setDepth(18).setStrokeStyle(2, 0x00ff88))
-    D.push(this.add.text(cx, cy - 10, '✓ Semua kabel tersambung dengan benar!', {
+    D.push(UI.makePanel(this, cx, cy, 400, 100, 'ui_panel_green')
+      .setScrollFactor(0).setDepth(18))
+    D.push(this.add.image(cx, cy - 25, 'ui_icon_check').setScrollFactor(0).setDepth(19).setDisplaySize(24, 24))
+    D.push(this.add.text(cx, cy - 2, 'Semua kabel tersambung!', {
       fontSize: '16px', color: '#00ff88', fontStyle: 'bold',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(19))
     D.push(this.add.text(cx, cy + 18, 'RJ45 T-568B Standard ✓', {
@@ -928,8 +909,8 @@ export class GameScene extends Phaser.Scene {
     const cx = 400, cy = 300, D = this.dialogElements
     const panelW = 720, panelH = 500
 
-    D.push(this.add.rectangle(cx, cy, panelW, panelH, 0x111122, 0.97)
-      .setScrollFactor(0).setDepth(15).setStrokeStyle(2, 0x2d8aaa))
+    D.push(UI.makePanel(this, cx, cy, panelW, panelH, 'ui_panel_blue')
+      .setScrollFactor(0).setDepth(15))
 
     this.addDialogText(D, cx, cy - panelH / 2 + 24, '💻  Susun Script: Server Health Checker', '15px', '#44ccff', 'bold')
     this.addDialogText(D, cx, cy - panelH / 2 + 46, 'Tarik blok kode ke slot yang tepat — urutan dari atas ke bawah', '10px', '#6688aa')
@@ -1106,12 +1087,13 @@ export class GameScene extends Phaser.Scene {
 
       // Success overlay
       const cx = 400, cy = 300, D = this.dialogElements
-      D.push(this.add.rectangle(cx, cy, 400, 100, 0x0a2a0a, 0.95)
-        .setScrollFactor(0).setDepth(19).setStrokeStyle(2, 0x00ff88))
-      D.push(this.add.text(cx, cy - 15, '✓ Script berjalan!', {
+      D.push(UI.makePanel(this, cx, cy, 400, 100, 'ui_panel_green')
+        .setScrollFactor(0).setDepth(19))
+      D.push(this.add.image(cx, cy - 25, 'ui_icon_check').setScrollFactor(0).setDepth(20).setDisplaySize(24, 24))
+      D.push(this.add.text(cx, cy + 5, 'Script berjalan!', {
         fontSize: '18px', color: '#00ff88', fontStyle: 'bold',
       }).setOrigin(0.5).setScrollFactor(0).setDepth(20))
-      D.push(this.add.text(cx, cy + 15, 'Server Health Checker: 4 up, 2 down', {
+      D.push(this.add.text(cx, cy + 25, 'Server Health Checker: 4 up, 2 down', {
         fontSize: '12px', color: '#88ccaa',
       }).setOrigin(0.5).setScrollFactor(0).setDepth(20))
 
@@ -1130,23 +1112,16 @@ export class GameScene extends Phaser.Scene {
       }
 
       const cx = 400, cy = 300, D = this.dialogElements
-      D.push(this.add.rectangle(cx, cy, 500, 120, 0x2a0a0a, 0.95)
-        .setScrollFactor(0).setDepth(19).setStrokeStyle(2, 0xff4444))
-      D.push(this.add.text(cx, cy - 30, '✗ Script error!', {
-        fontSize: '18px', color: '#ff4444', fontStyle: 'bold',
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(20))
-      D.push(this.add.text(cx, cy, 'Urutan blok belum benar. Coba lagi!', {
-        fontSize: '12px', color: '#ff8888',
+      D.push(UI.makePanel(this, cx, cy, 500, 120, 'ui_panel_grey')
+        .setScrollFactor(0).setDepth(19))
+      D.push(this.add.image(cx, cy - 30, 'ui_icon_cross').setScrollFactor(0).setDepth(20).setDisplaySize(24, 24))
+      D.push(this.add.text(cx, cy - 5, 'Script error! Urutan blok belum benar.', {
+        fontSize: '13px', color: '#ff8888',
       }).setOrigin(0.5).setScrollFactor(0).setDepth(20))
 
-      const retryBtn = this.add.text(cx, cy + 35, '🔄  Ulangi', {
-        fontSize: '14px', color: '#ffffff', backgroundColor: '#444466',
-        padding: { x: 16, y: 8 },
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(20)
-        .setInteractive({ useHandCursor: true })
+      const retryBtn = UI.makeBtn(this, cx, cy + 35, 140, 38, 'Ulangi', 'ui_btn_grey', { fontSize: '13px' })
+        .setScrollFactor(0).setDepth(20)
       D.push(retryBtn)
-      retryBtn.on('pointerover', () => retryBtn.setStyle({ backgroundColor: '#556688' }))
-      retryBtn.on('pointerout',  () => retryBtn.setStyle({ backgroundColor: '#444466' }))
       retryBtn.on('pointerdown', () => {
         this.dialogElements.forEach(el => el.destroy())
         this.dialogElements.length = 0
@@ -1185,14 +1160,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private addCloseBtn(D: Phaser.GameObjects.GameObject[], x: number, y: number) {
-    const btn = this.add.text(x, y, '[ Tutup ]', {
-      fontSize: '13px', color: '#aaaaaa', backgroundColor: '#222233',
-      padding: { x: 12, y: 6 },
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(16)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerover', () => btn.setStyle({ color: '#ffffff' }))
-      .on('pointerout',  () => btn.setStyle({ color: '#aaaaaa' }))
-      .on('pointerdown', () => this.closeDialog())
+    const btn = UI.makeBtn(this, x, y, 140, 40, 'Tutup', 'ui_btn_red', { fontSize: '13px' })
+      .setScrollFactor(0).setDepth(16)
+    btn.on('pointerdown', () => this.closeDialog())
     D.push(btn)
   }
 }

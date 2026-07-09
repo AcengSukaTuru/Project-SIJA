@@ -1,10 +1,15 @@
 import Phaser from 'phaser'
+import { UI } from '../ui/UI'
 
 // ponytail: no asset loading; all visuals procedural. Add preload() + atlas when art is ready.
 export class MenuScene extends Phaser.Scene {
   private modal?: Phaser.GameObjects.Container
 
   constructor() { super('MenuScene') }
+
+  preload() {
+    UI.preload(this)
+  }
 
   create() {
     this.modal = undefined
@@ -38,13 +43,12 @@ export class MenuScene extends Phaser.Scene {
     g.lineStyle(2, 0x334488, 1)
     g.lineBetween(200, 215, 600, 215)
 
-    // Buttons
-    this.makeBtn(W / 2, 290, '▶  MULAI BELAJAR', 0x1155dd, 0x3377ff, () => {
-      this.scene.start('LessonSelectScene')
-    })
-    this.makeBtn(W / 2, 370, '📖  CARA BERMAIN', 0x115533, 0x33aa66, () => {
-      if (!this.modal) this.showHowToPlay()
-    })
+    // Buttons — Kenney UI
+    const startBtn = UI.makeBtn(this, W / 2, 290, 300, 52, '▶  MULAI BELAJAR', 'ui_btn_blue', { fontSize: '16px' })
+    startBtn.on('pointerdown', () => this.scene.start('LessonSelectScene'))
+
+    const howBtn = UI.makeBtn(this, W / 2, 370, 300, 52, '📖  CARA BERMAIN', 'ui_btn_green', { fontSize: '16px' })
+    howBtn.on('pointerdown', () => { if (!this.modal) this.showHowToPlay() })
 
     // Version
     this.add.text(W - 10, H - 10, 'Phase 1 v0.1', {
@@ -52,48 +56,31 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(1, 1)
   }
 
-  private makeBtn(x: number, y: number, label: string, colorNormal: number, colorHover: number, cb: () => void) {
-    const bg = this.add.rectangle(x, y, 300, 52, colorNormal, 1)
-      .setStrokeStyle(2, colorHover)
-      .setInteractive({ useHandCursor: true })
-
-    const txt = this.add.text(x, y, label, {
-      fontSize: '16px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5)
-
-    bg.on('pointerover', () => { bg.setFillStyle(colorHover); this.tweens.add({ targets: bg, scaleX: 1.04, scaleY: 1.04, duration: 80 }) })
-    bg.on('pointerout',  () => { bg.setFillStyle(colorNormal); this.tweens.add({ targets: bg, scaleX: 1, scaleY: 1, duration: 80 }) })
-    bg.on('pointerdown', cb)
-
-    return { bg, txt }
-  }
-
   private showHowToPlay() {
     const W = 800, H = 600
 
-    // Container holds everything — destroy once to clean up all at once
     this.modal = this.add.container(0, 0).setDepth(10)
 
     const overlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.75)
       .setInteractive()
     this.modal.add(overlay)
 
-    const panel = this.add.rectangle(W / 2, H / 2, 520, 380, 0x111133, 1)
-      .setStrokeStyle(2, 0x3355aa)
+    // Panel — Kenney UI
+    const panel = UI.makePanel(this, W / 2, H / 2, 520, 380)
     this.modal.add(panel)
 
     const lines = [
-      '🎮  CARA BERMAIN',
+      'CARA BERMAIN',
       '',
       'WASD / Arrow Keys   →  Gerakkan karakter',
       'E                   →  Interaksi dengan objek',
       '',
-      '📋  Setiap pelajaran punya tugas berbeda.',
+      'Setiap pelajaran punya tugas berbeda.',
       'Dekati objek (Server, Router, dll),',
       'tekan E, lalu jawab pertanyaan yang muncul.',
       '',
-      '✓  Jawab benar → task selesai',
-      '✗  Jawab salah → bisa coba lagi',
+      'Jawab benar → task selesai',
+      'Jawab salah → bisa coba lagi',
       '',
       'Selesaikan semua task untuk lulus!',
     ]
@@ -108,24 +95,15 @@ export class MenuScene extends Phaser.Scene {
       this.modal!.add(t)
     })
 
-    const closeBg = this.add.rectangle(W / 2, H / 2 + 165, 300, 52, 0x442222, 1)
-      .setStrokeStyle(2, 0xaa3333)
-      .setInteractive({ useHandCursor: true })
-    this.modal.add(closeBg)
+    // Close button — Kenney UI
+    const closeBtn = UI.makeBtn(this, W / 2, H / 2 + 165, 200, 46, 'Tutup', 'ui_btn_red', { fontSize: '14px' })
+    this.modal.add(closeBtn)
 
-    const closeTxt = this.add.text(W / 2, H / 2 + 165, '✕  Tutup', {
-      fontSize: '16px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5)
-    this.modal.add(closeTxt)
-
-    closeBg.on('pointerover', () => closeBg.setFillStyle(0xaa3333))
-    closeBg.on('pointerout',  () => closeBg.setFillStyle(0x442222))
-    closeBg.on('pointerdown', () => {
+    closeBtn.on('pointerdown', () => {
       this.modal?.destroy()
       this.modal = undefined
     })
 
-    // Click overlay to close too
     overlay.on('pointerdown', () => {
       this.modal?.destroy()
       this.modal = undefined

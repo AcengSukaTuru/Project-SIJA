@@ -14,7 +14,7 @@ type ITObject = {
   name: string
   x: number; y: number; w: number; h: number
   color: number
-  rect: Phaser.GameObjects.Rectangle
+  rect: Phaser.GameObjects.Rectangle | Phaser.GameObjects.Image
   label: Phaser.GameObjects.Text
   hint: Phaser.GameObjects.Text
   done: boolean
@@ -181,8 +181,39 @@ export class GameScene extends Phaser.Scene {
     this.blockPaletteTexts = []
   }
 
+  // ponytail: asset keys inline. Move to src/data/assets.ts when art pipeline exists.
+  private static ASSET_MAP: Record<string, { key: string; path: string }> = {
+    'player':      { key: 'player',      path: 'assets/player.png' },
+    'Kabel FO':    { key: 'kabel_fo',    path: 'assets/kabel_fo.png' },
+    'OTDR':        { key: 'otdr',        path: 'assets/otdr.png' },
+    'ODP':         { key: 'odp',         path: 'assets/odp.png' },
+    'Patch Panel': { key: 'patch_panel', path: 'assets/patch_panel.png' },
+    'Switch':      { key: 'switch',      path: 'assets/switch.png' },
+    'Router':      { key: 'router',      path: 'assets/router.png' },
+    'Terminal':    { key: 'terminal',    path: 'assets/terminal.png' },
+    'Code Editor': { key: 'code_editor', path: 'assets/code_editor.png' },
+    'Debugger':    { key: 'debugger',    path: 'assets/debugger.png' },
+    'wall':        { key: 'wall',        path: 'assets/wall.png' },
+  }
+
+  preload() {
+    // Load all available assets; Phaser silently skips 404s
+    for (const asset of Object.values(GameScene.ASSET_MAP)) {
+      this.load.image(asset.key, asset.path)
+    }
+    this.load.on('loaderror', () => { /* swallow missing asset errors */ })
+  }
+
+  private makeSprite(key: string, fallbackW: number, fallbackH: number, fallbackColor: number): Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle {
+    if (this.textures.exists(key)) {
+      return this.add.image(0, 0, key).setDisplaySize(fallbackW, fallbackH)
+    }
+    return this.add.rectangle(0, 0, fallbackW, fallbackH, fallbackColor)
+  }
+
   create() {
     // --- Map ---
+    // ponytail: single bg rect. Replace with tilemap bg sprite when map art exists.
     const bg = this.add.rectangle(MAP_X + MAP_W / 2, MAP_Y + MAP_H / 2, MAP_W, MAP_H, 0x0d0d1a)
     bg.setDepth(0)
     const border = this.add.graphics()
@@ -193,14 +224,16 @@ export class GameScene extends Phaser.Scene {
     // --- Obstacles ---
     const walls = this.physics.add.staticGroup()
     for (const o of OBSTACLES) {
-      const r = this.add.rectangle(MAP_X + o.x, MAP_Y + o.y, o.w, o.h, 0x666688)
-      r.setDepth(1)
+      const r = this.makeSprite('wall', o.w, o.h, 0x666688)
+      r.setPosition(MAP_X + o.x, MAP_Y + o.y).setDepth(1)
       this.physics.add.existing(r, true)
       walls.add(r)
     }
 
     // --- Player ---
+    this.player = this.physics.add.image(MAP_X + MAP_W / 2, MAP_Y + MAP_H / 2, 'player') // will use 'player' texture if loaded, fallback handled by preload
     if (!this.textures.exists('player')) {
+      // Generate fallback texture
       const pg = this.make.graphics({ x: 0, y: 0 })
       pg.fillStyle(0x4488ff, 1)
       pg.fillRect(0, 0, 24, 24)
@@ -208,9 +241,8 @@ export class GameScene extends Phaser.Scene {
       pg.strokeRect(1, 1, 22, 22)
       pg.generateTexture('player', 24, 24)
       pg.destroy()
+      this.player.setTexture('player')
     }
-
-    this.player = this.physics.add.image(MAP_X + MAP_W / 2, MAP_Y + MAP_H / 2, 'player')
     this.player.setDepth(2)
     this.player.setCollideWorldBounds(true)
     this.physics.world.setBounds(MAP_X, MAP_Y, MAP_W, MAP_H)
@@ -218,9 +250,15 @@ export class GameScene extends Phaser.Scene {
 
     // --- IT Objects (per lesson) ---
     const defs = LESSON_OBJECTS[this.lessonId] ?? LESSON_OBJECTS['fiber']
+    const assetKeyMap: Record<string, string> = {}
+    for (const [name, asset] of Object.entries(GameScene.ASSET_MAP)) {
+      assetKeyMap[name] = asset.key
+    }
 
     for (const d of defs) {
-      const rect = this.add.rectangle(MAP_X + d.x, MAP_Y + d.y, d.w, d.h, d.color).setDepth(1)
+      const assetKey = assetKeyMap[d.name]
+      const sprite = this.makeSprite(assetKey ?? '', d.w, d.h, d.color)
+      sprite.setPosition(MAP_X + d.x, MAP_Y + d.y).setDepth(1)
       const label = this.add.text(MAP_X + d.x, MAP_Y + d.y - d.h / 2 - 14, d.name, {
         fontSize: '11px', color: '#cccccc', backgroundColor: '#00000088', padding: { x: 3, y: 2 }
       }).setOrigin(0.5, 1).setDepth(3)
@@ -229,7 +267,7 @@ export class GameScene extends Phaser.Scene {
       }).setOrigin(0.5, 1).setDepth(3).setVisible(false)
       this.itObjects.push({
         name: d.name, x: MAP_X + d.x, y: MAP_Y + d.y, w: d.w, h: d.h, color: d.color,
-        rect, label, hint, done: false,
+        rect: sprite, label, hint, done: false,
       })
     }
 
